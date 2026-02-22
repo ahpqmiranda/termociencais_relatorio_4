@@ -1,0 +1,165 @@
+\section{Introdução}
+\label{sec:introducao}
+
+O escoamento de fluidos em dutos é fundamental para caracterizar perfis de velocidade que variam radialmente devido a efeitos de viscosidade na parede.
+Assim sendo, este experimento utiliza um ventilador com duto equipado com tomadas de pressão estática, tubo de Pitot e manômetro em U para medir velocidades locais em função do raio, aplicando a equação de Bernoulli para converter diferenças de pressão em velocidades.
+
+A base teórica envolve a conservação de massa para integrar o perfil e obter a velocidade média, consolidando conceitos de mecânica dos fluidos em regime permanente \cite{tcc_kallyne, conservacao_massa_unip}.
+Tais ensaios são base para a validação empírica da equação da continuidade e para a caracterização de instrumentação de escoamento \cite{equacao_continuidade_brasilescola, instrumentacao_vazao}.
+
+\section{Objetivos}
+\label{sec:objetivos}
+
+Determinar experimentalmente o perfil de velocidade de escoamento em um duto e calcular a velocidade média aplicando a conservação de massa \cite{experiencia04, mecflu_ufpr}.
+
+\subsection{Objetivo Geral}
+\label{subsec:objetivo_geral}
+Determinar o perfil de velocidade e a velocidade média de escoamento em um duto utilizando medições de pressão estática e dinâmica através da equação de Bernoulli \cite{equacao_bernoulli_youtube, medida_velocidade_unip}.
+
+\subsection{Objetivos Específicos}
+\label{subsec:objetivo_especificos}
+\begin{itemize}
+    \item Medir a pressão estática e dinâmica em diferentes pontos radiais do duto utilizando a sonda de Pitot \cite{tcc_rodrigo_ufsc}.
+    \item Calcular a velocidade local utilizando a equação derivada de Bernoulli \cite{equacao_bernoulli_youtube}.
+    \item Integrar o perfil de velocidade para obter a velocidade média \cite{experiencia04}.
+\end{itemize}
+
+
+
+\section{Metodologia}
+\label{sec:metodologia}
+
+O aparato experimental é composto por um túnel de vento confeccionado em tubo de PVC de 6 cm de diâmetro, acoplado a um ventilador industrial responsável por gerar o escoamento de ar. Para aferir o perfil de velocidades, utiliza-se um tubo de Pitot que se desloca radialmente no interior do duto \cite{experiencia04, tcc_kallyne}. O uso do Pitot neste formato é uma prática clássica documentada em trabalhos experimentais para determinação do perfil \cite{perfil_velocidades_scribd}.
+
+A inovação na instrumentação consiste no uso de um sensor de pressão diferencial conectado a um microcontrolador Arduino, prática que vem ganhando espaço em adaptações modernas de túneis de vento \cite{medindo_velocidade_vento, trabalho_phoenics}. O sensor capta a pressão de estagnação do ar e a converte em um sinal de tensão (0 a 5V). O conversor analógico-digital (ADC) de 10 bits do Arduino traduz essa tensão em uma leitura bruta (\textit{raw}), gerando valores inteiros que variam de 0 a 1023. Simultaneamente, utiliza-se um manômetro em U clássico, com coluna de água em milímetros (mm), para fornecer o referencial físico indispensável para a calibração do transdutor eletrônico \cite{experiencia04, estudo_pitot_lamon}.
+
+\subsection{Procedimento Experimental}
+\label{subsec:procedimento_experimental}
+
+O experimento foi conduzido sob duas condições de vazão do ventilador: a 100\% (capacidade total) e a 60\%. Em cada etapa, o tubo de Pitot foi transladado da parede interna esquerda à direita do tubo de PVC (0 cm a 6 cm, com espaçamento de 1 cm entre medições) \cite{perfil_velocidade_youtube}. Em cada uma das 7 posições de perfil, anotou-se simultaneamente a leitura bruta do canal analógico do Arduino e o desnível real da coluna de água \cite{experiencia04}.
+
+\subsection{Tratamento Computacional}
+\label{subsec:tratamento_computacional}
+
+A transformação da leitura digital para a velocidade do escoamento exige três passos lógicos, que foram estruturados através de um script em Python utilizando as bibliotecas \texttt{numpy}, \texttt{pandas} e \texttt{scipy}.
+
+
+A transformação da leitura digital para a velocidade do escoamento exige três passos lógicos, que foram estruturados através de um script em Python utilizando as bibliotecas \texttt{numpy}, \texttt{pandas} e \texttt{scipy}.
+
+\begin{enumerate}
+    \item \textbf{Calibração do Sinal (Regressão Linear):}
+    Em vez de utilizar a função de transferência de fábrica do sensor, os dados brutos do Arduino (0 a 1023) foram correlacionados com as medições empíricas da coluna de água (\text{mm}). Aplicou-se uma regressão linear sobre os dados unidos das duas vazões para encontrar uma função de calibração do tipo: \(h_{mm} = A \cdot \text{ADC} + B\). O Python retornou a seguinte equação empírica:
+    \[ h_{mm} = 1.5454 \cdot \text{ADC} - 808.9184 \]
+
+    \item \textbf{Conversão de Unidade Dimensional:}
+    A coluna de água, aferida em milímetros, é convertida para metros dividindo-se o valor por 1000 (\(h_m = \frac{h_{mm}}{1000}\)), garantindo a compatibilidade com o Sistema Internacional de Unidades (SI).
+
+    \item \textbf{Validação da Teoria (Equação de Bernoulli):}
+    Com o diferencial de pressão mapeado fisicamente em metros de coluna de água, aplica-se a equação teórica derivada de Bernoulli para extrair a velocidade local do escoamento (\(v\)):
+    \[ v = \sqrt{\frac{2 \cdot \rho_{agua} \cdot g \cdot h_m}{\rho_{ar}}} \]
+    Onde adota-se a densidade da água (\(\rho_{agua}\)) como \(1000 \, \text{kg/m}^3\), a densidade do ar (\(\rho_{ar}\)) como \(1,225 \, \text{kg/m}^3\) e a aceleração da gravidade (\(g\)) como \(9,81 \, \text{m/s}^2\).
+\end{enumerate}
+
+\subsection{Código de Estruturação em Python}
+\label{subsec:codigo_python}
+
+Abaixo está o bloco de código desenvolvido para o processamento automatizado, que integra a leitura dos dados planilhados, o cálculo da calibração global e a aplicação da equação de Bernoulli.
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+import pandas as pd
+from scipy.stats import linregress
+
+# 1. Carregando os dados do experimento a partir da planilha
+data100_df = pd.read_excel(io='dados exp4.ods', sheet_name='abertura_100', engine='odf')
+data60_df = pd.read_excel(io='dados exp4.ods', sheet_name='abertura_60', engine='odf')
+
+# 2. Unindo os dados para a Regressão Linear Global
+todas_medicoes = np.concatenate([data100_df['medição'].values, data60_df['medição'].values])
+todas_colunas = np.concatenate([data100_df['coluna mm'].values, data60_df['coluna mm'].values])
+
+slope, intercept, _, _, _ = linregress(todas_medicoes, todas_colunas)
+# Equação resultante: h(mm) = slope * ADC + intercept
+
+# 3. Constantes Físicas para a Equação de Bernoulli
+g = 9.81           # m/s^2
+rho_agua = 1000    # kg/m^3
+rho_ar = 1.225     # kg/m^3
+
+# 4. Função de conversão automatizada: ADC -> mmH2O -> Metros -> m/s
+def adc_para_velocidade(leitura_adc):
+    h_mm = (slope * leitura_adc) + intercept    # Calibração via Regressão
+    h_m = h_mm / 1000.0                         # Conversão mm para m
+
+    # Tratamento para evitar raízes negativas por flutuação do sensor
+    if h_m < 0:
+        h_m = 0
+
+    velocidade = np.sqrt((2 * rho_agua * g * h_m) / rho_ar) # Bernoulli
+    return velocidade
+
+# 5. Aplicação da função nos DataFrames
+data100_df['velocidade (m/s)'] = data100_df['medição'].apply(adc_para_velocidade)
+data60_df['velocidade (m/s)'] = data60_df['medição'].apply(adc_para_velocidade)
+\end{lstlisting}
+
+
+
+\section{Resultados e Discussões}
+\label{sec:resultados}
+
+Esta seção apresenta os resultados obtidos após o tratamento computacional dos dados aferidos no túnel de vento, dividindo-se na validação da instrumentação eletrônica e na análise física do perfil de velocidades do fluido.
+
+\subsection{Validação e Calibração do Sensor}
+\label{subsec:calibracao}
+
+A primeira etapa do tratamento consistiu em correlacionar a leitura bruta do conversor analógico-digital (ADC) do Arduino com a diferença de pressão real, medida em milímetros de coluna de água. A Figura \ref{fig:calibracao_sensor} apresenta a curva de calibração gerada pela regressão linear dos dados empíricos de ambas as vazões (100\% e 60\%).
+
+\begin{figure}[!htbp]
+    \centering
+    \caption{Curva de Calibração do Sensor de Pressão (ADC vs. Coluna de Água).}
+    \includegraphics[width=0.8\textwidth]{scripts/grafico1_experimento_pitot.png}
+    \label{fig:calibracao_sensor}
+
+    \text{Fonte: Elaborado pelos autores (2026)}
+\end{figure}
+
+O modelo linear gerado pelo algoritmo demonstrou a seguinte relação matemática:
+\[ h_{mm} = 1.5454 \cdot \text{ADC} - 808.9184 \]
+
+O coeficiente de determinação ($R^2 = 0.8513$) indica uma correlação linear satisfatória entre o sinal elétrico e a pressão física. Embora o valor de $R^2$ evidencie uma leve dispersão típica de sensores analógicos de baixo custo operando em faixas sensíveis de pressão, o comportamento linear foi suficientemente robusto para validar o uso do Arduino na substituição da leitura visual da coluna de água \cite{trabalho_phoenics}.
+
+\subsection{Perfil de Velocidades do Escoamento}
+\label{subsec:perfil_velocidades}
+
+Com a calibração validada, a equação de Bernoulli foi aplicada para converter os diferenciais de pressão em velocidades locais do fluido (m/s) \cite{medida_velocidade_unip}. Os resultados calculados para as configurações de 100\% e 60\% de abertura do ventilador estão consolidados, respectivamente, na Tabela \ref{tab:pitot_100} e na Tabela \ref{tab:pitot_60}.
+
+% Importação das tabelas geradas pelo seu código Python
+\input{scripts/tabela_experimento_pitot.tex}
+\input{scripts/tabela_experimento_pitot2.tex}
+
+A distribuição espacial dessas velocidades ao longo do diâmetro do tubo de PVC (de 0 a 6 cm) pode ser visualizada na Figura \ref{fig:perfil_velocidade}.
+
+\begin{figure}[!htbp]
+    \centering
+    \caption{Perfil de Velocidade Radial no Duto de PVC.}
+    \includegraphics[width=0.8\textwidth]{scripts/grafico2_experimento_pitot.png}
+    \label{fig:perfil_velocidade}
+
+    \text{Fonte: Elaborado pelos autores (2026)}
+\end{figure}
+
+A análise da Figura \ref{fig:perfil_velocidade} comprova o comportamento teórico esperado para o escoamento interno de fluidos viscosos em dutos cilíndricos \cite{tcc_kallyne, perfil_velocidade_youtube}. Observa-se a formação de um perfil parabólico, onde a velocidade atinge seu valor máximo na região central do tubo (posição 3 cm), registrando aproximadamente 33,2 m/s na capacidade máxima e 21,9 m/s na capacidade reduzida.
+
+Nas proximidades das bordas do duto (posições 0 cm e 6 cm), nota-se uma queda acentuada na velocidade. Este fenômeno ocorre devido à tensão de cisalhamento gerada pelo atrito entre as partículas de ar e a parede interna do tubo de PVC, fenômeno associado à condição teórica de não-escorregamento amplamente discutida na literatura de mecânica dos fluidos \cite{velocidade_duto_scribd, mecflu_ufpr}. Além disso, a separação visual clara entre as curvas corrobora a consistência do experimento, provando que a redução da vazão do ventilador para 60\% refletiu em uma queda homogênea e proporcional do campo de velocidades em toda a seção transversal.
+
+\section{Conclusão}
+\label{sec:conclusao}
+
+O presente relatório alcançou seu objetivo principal ao determinar experimentalmente o perfil de velocidades do escoamento de ar em um duto cilíndrico, validando os princípios teóricos da mecânica dos fluidos \cite{experiencia04, mecflu_ufpr}. A utilização combinada de um tubo de Pitot e um manômetro em U permitiu quantificar as pressões dinâmicas locais, que, através da Equação de Bernoulli, foram convertidas com sucesso em velocidades lineares \cite{equacao_bernoulli_youtube}.
+
+A instrumentação do experimento demonstrou ser uma inovação eficaz \cite{medindo_velocidade_vento}. A substituição da leitura exclusivamente visual da coluna de água pelo emprego de um sensor de pressão diferencial acoplado a um microcontrolador Arduino possibilitou a automatização da aquisição de dados. O tratamento computacional desenvolvido em Python, fundamentado em uma regressão linear global ($R^2 = 0,8513$), garantiu uma calibração confiável do sinal analógico, viabilizando uma conversão de dados rápida, reprodutível e adequada ao Sistema Internacional de Unidades.
+
+A análise gráfica dos resultados confirmou o comportamento fluido-dinâmico previsto pela literatura: o desenvolvimento de um perfil de velocidades em formato parabólico \cite{tcc_kallyne}. Ficou evidenciado que a velocidade atinge seu valor máximo no centro do tubo de PVC (aproximadamente 33,2 m/s na vazão total e 21,9 m/s na vazão de 60\%) e decai significativamente nas proximidades das paredes (0 cm e 6 cm). Esse decaimento corrobora o conceito físico de tensão de cisalhamento e atrito viscoso na condição de não-escorregamento \cite{velocidade_duto_scribd}.
+
+Por fim, o aparato experimental e a metodologia computacional aplicada provaram-se métodos consistentes não apenas para o estudo acadêmico de perfis de velocidade, mas também como base sólida para futuras práticas de cálculo de vazão e velocidade média de escoamento em sistemas de ventilação \cite{instrumentacao_vazao}.
